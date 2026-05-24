@@ -1,0 +1,540 @@
+blueprint:
+  name: "SNO_HeatFlow"
+  description: |
+    # 🌡️ SNO_HeatFlow - Intelligente Heizungssteuerung
+    Dieser hochmoderne Blueprint ermöglicht eine detaillierte, flexible und benutzerfreundliche Heizungszeitplanung pro Raum oder Zone.
+
+    **WICHTIG:** Alle Sektionen bis auf "Ziel-Thermostate" und "Zeitfenster 1" sind **optional**! Du musst nur ausfüllen, was du wirklich brauchst.
+
+    **So funktioniert es:**
+    1. Wähle im ersten Schritt deine Ziel-Thermostate.
+    2. Richte Abwesenheit und Urlaub ein (Optional). Du kannst hierbei zwischen Entitäten (Helfern für dein Dashboard) oder festen Werten direkt hier im Blueprint wählen.
+    3. Definiere bis zu 7 Zeitfenster. Lege Uhrzeit, Temperatur und Wochentage fest.
+
+    ---
+    **Version:** 0.5.0  
+    **Hilfe & Dokumentation:** [Hier klicken](Platzhalter)  
+    **Fehler melden (GitHub):** [Issues](Platzhalter)
+  domain: automation
+  input:
+    # --- BASIS SETUP ---
+    section_core:
+      name: "1️⃣ Kern-Konfiguration"
+      icon: mdi:thermostat
+      input:
+        target_heating:
+          name: "Thermostat(e) auswählen (PFLICHT)"
+          description: "Wähle hier einzelne Thermostate, ganze Geräte oder Räume aus."
+          selector:
+            target:
+              entity:
+                domain: climate
+
+    # --- ABWESENHEIT ---
+    section_absence:
+      name: "2️⃣ Abwesenheits-Modus (Optional)"
+      icon: mdi:home-export-outline
+      collapsed: true
+      input:
+        absence_toggle:
+          name: "Schalter für Abwesenheit"
+          description: "Ein `input_boolean` Helfer. Ist dieser AN, wird der reguläre Zeitplan pausiert."
+          default: []
+          selector:
+            entity:
+              domain: input_boolean
+        absence_temp_entity:
+          name: "ENTWEDER: Temperatur-Helfer"
+          description: "Wähle einen `input_number` Helfer, um die Abwesenheits-Temperatur bequem über dein Dashboard zu steuern."
+          default: []
+          selector:
+            entity:
+              domain: input_number
+        absence_temp_slider:
+          name: "ODER: Temperatur direkt hier einstellen"
+          description: "Wird **nur** genutzt, wenn oben **kein** Helfer ausgewählt wurde!"
+          default: 15.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+
+    # --- URLAUB ---
+    section_vacation:
+      name: "3️⃣ Urlaubs-Modus (Optional)"
+      icon: mdi:beach
+      collapsed: true
+      input:
+        vacation_entity:
+          name: "Urlaubs-Schalter oder Kalender"
+          description: |
+            Wann ist Urlaub?
+            * **Kalender (Empfohlen):** Sobald ein Event im Kalender läuft, ist Urlaub aktiv. Start/Ende regelt der Kalender.
+            * **Schalter (input_boolean):** Ein manueller Schalter auf deinem Dashboard.
+          default: []
+          selector:
+            entity:
+              domain: [calendar, input_boolean]
+        vacation_start_entity:
+          name: "ENTWEDER: Start-Datum & Uhrzeit als Helfer"
+          description: "Wähle einen `input_datetime` Helfer. (Wird bevorzugt, falls ausgefüllt)"
+          default: []
+          selector:
+            entity:
+              domain: input_datetime
+        vacation_start_ui:
+          name: "ODER: Start-Datum & Uhrzeit direkt hier"
+          description: "Stelle den Start direkt im Blueprint ein. (Wird ignoriert, wenn oben ein Helfer gewählt ist)"
+          default: ""
+          selector:
+            datetime: {}
+        vacation_end_entity:
+          name: "ENTWEDER: End-Datum & Uhrzeit als Helfer"
+          description: "Wähle einen `input_datetime` Helfer."
+          default: []
+          selector:
+            entity:
+              domain: input_datetime
+        vacation_end_ui:
+          name: "ODER: End-Datum & Uhrzeit direkt hier"
+          description: "Stelle das Ende direkt im Blueprint ein."
+          default: ""
+          selector:
+            datetime: {}
+        vacation_temp_entity:
+          name: "ENTWEDER: Temperatur-Helfer"
+          description: "Wähle einen `input_number` Helfer für die Urlaubstemperatur."
+          default: []
+          selector:
+            entity:
+              domain: input_number
+        vacation_temp_slider:
+          name: "ODER: Temperatur direkt hier einstellen"
+          description: "Wird **nur** genutzt, wenn oben **kein** Helfer ausgewählt wurde!"
+          default: 15.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+
+    # --- ZEITFENSTER 1 (PFLICHT) ---
+    section_slot_1:
+      name: "🕒 Zeitfenster 1 (Pflicht)"
+      icon: mdi:clock-check-outline
+      input:
+        s1_time:
+          name: "Uhrzeit"
+          default: "06:00:00"
+          selector: { time: {} }
+        s1_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s1_days:
+          name: "Wochentage"
+          description: "An welchen Tagen soll dieses Zeitfenster aktiv sein?"
+          default: ["0", "1", "2", "3", "4", "5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 2 ---
+    section_slot_2:
+      name: "🕒 Zeitfenster 2 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s2_time:
+          name: "Uhrzeit"
+          description: "Leer lassen, um dieses Fenster zu deaktivieren."
+          default: ""
+          selector: { text: { type: time } }
+        s2_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s2_days:
+          name: "Wochentage"
+          default: ["0", "1", "2", "3", "4"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 3 ---
+    section_slot_3:
+      name: "🕒 Zeitfenster 3 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s3_time:
+          name: "Uhrzeit"
+          default: ""
+          selector: { text: { type: time } }
+        s3_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s3_days:
+          name: "Wochentage"
+          default: ["5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 4 ---
+    section_slot_4:
+      name: "🕒 Zeitfenster 4 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s4_time:
+          name: "Uhrzeit"
+          default: ""
+          selector: { text: { type: time } }
+        s4_temp:
+          name: "Ziel-Temperatur"
+          default: 18.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s4_days:
+          name: "Wochentage"
+          default: ["0", "1", "2", "3", "4", "5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 5 ---
+    section_slot_5:
+      name: "🕒 Zeitfenster 5 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s5_time:
+          name: "Uhrzeit"
+          default: ""
+          selector: { text: { type: time } }
+        s5_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s5_days:
+          name: "Wochentage"
+          default: ["0", "1", "2", "3", "4", "5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 6 ---
+    section_slot_6:
+      name: "🕒 Zeitfenster 6 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s6_time:
+          name: "Uhrzeit"
+          default: ""
+          selector: { text: { type: time } }
+        s6_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s6_days:
+          name: "Wochentage"
+          default: ["0", "1", "2", "3", "4", "5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+    # --- ZEITFENSTER 7 ---
+    section_slot_7:
+      name: "🕒 Zeitfenster 7 (Optional)"
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        s7_time:
+          name: "Uhrzeit"
+          default: ""
+          selector: { text: { type: time } }
+        s7_temp:
+          name: "Ziel-Temperatur"
+          default: 21.0
+          selector: { number: { min: 5, max: 30, step: 0.5, unit_of_measurement: "°C", mode: slider } }
+        s7_days:
+          name: "Wochentage"
+          default: ["0", "1", "2", "3", "4", "5", "6"]
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: "Montag"
+                  value: "0"
+                - label: "Dienstag"
+                  value: "1"
+                - label: "Mittwoch"
+                  value: "2"
+                - label: "Donnerstag"
+                  value: "3"
+                - label: "Freitag"
+                  value: "4"
+                - label: "Samstag"
+                  value: "5"
+                - label: "Sonntag"
+                  value: "6"
+
+variables:
+  absence_toggle: !input absence_toggle
+  absence_temp_entity: !input absence_temp_entity
+  absence_temp_slider: !input absence_temp_slider
+  
+  vacation_entity: !input vacation_entity
+  vacation_start_entity: !input vacation_start_entity
+  vacation_start_ui: !input vacation_start_ui
+  vacation_end_entity: !input vacation_end_entity
+  vacation_end_ui: !input vacation_end_ui
+  vacation_temp_entity: !input vacation_temp_entity
+  vacation_temp_slider: !input vacation_temp_slider
+
+  s1_time: !input s1_time
+  s1_temp: !input s1_temp
+  s1_days: !input s1_days
+  s2_time: !input s2_time
+  s2_temp: !input s2_temp
+  s2_days: !input s2_days
+  s3_time: !input s3_time
+  s3_temp: !input s3_temp
+  s3_days: !input s3_days
+  s4_time: !input s4_time
+  s4_temp: !input s4_temp
+  s4_days: !input s4_days
+  s5_time: !input s5_time
+  s5_temp: !input s5_temp
+  s5_days: !input s5_days
+  s6_time: !input s6_time
+  s6_temp: !input s6_temp
+  s6_days: !input s6_days
+  s7_time: !input s7_time
+  s7_temp: !input s7_temp
+  s7_days: !input s7_days
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+  - platform: state
+    entity_id: !input absence_toggle
+  - platform: state
+    entity_id: !input vacation_entity
+
+action:
+  - variables:
+      target_temp: >
+        {% set current_day = now().weekday() | string %}
+        {% set current_time = now().strftime('%H:%M') %}
+        
+        {# Lade alle konfigurierten Slots in eine Liste #}
+        {% set all_slots = [] %}
+        
+        {% if s1_time != '' and s1_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s1_time[:5], 'temp': s1_temp, 'days': s1_days}] %}
+        {% endif %}
+        {% if s2_time != '' and s2_time != none and s2_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s2_time[:5], 'temp': s2_temp, 'days': s2_days}] %}
+        {% endif %}
+        {% if s3_time != '' and s3_time != none and s3_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s3_time[:5], 'temp': s3_temp, 'days': s3_days}] %}
+        {% endif %}
+        {% if s4_time != '' and s4_time != none and s4_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s4_time[:5], 'temp': s4_temp, 'days': s4_days}] %}
+        {% endif %}
+        {% if s5_time != '' and s5_time != none and s5_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s5_time[:5], 'temp': s5_temp, 'days': s5_days}] %}
+        {% endif %}
+        {% if s6_time != '' and s6_time != none and s6_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s6_time[:5], 'temp': s6_temp, 'days': s6_days}] %}
+        {% endif %}
+        {% if s7_time != '' and s7_time != none and s7_days | length > 0 %}
+          {% set all_slots = all_slots + [{'time': s7_time[:5], 'temp': s7_temp, 'days': s7_days}] %}
+        {% endif %}
+
+        {# 1. Finde das aktuellste gültige Zeitfenster von HEUTE #}
+        {% set ns = namespace(latest_time='', temp=none) %}
+        {% for s in all_slots %}
+          {% if current_day in s.days %}
+            {% if s.time <= current_time %}
+              {% if s.time >= ns.latest_time %}
+                {% set ns.latest_time = s.time %}
+                {% set ns.temp = s.temp %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+
+        {# 2. FALLBACK: Suche die letzten 7 Tage rückwärts, falls heute noch kein Slot erreicht wurde #}
+        {% if ns.temp == none %}
+          {% set ns_prev = namespace(found=false, temp=20.0) %}
+          {% for i in range(1, 8) %}
+            {% if not ns_prev.found %}
+              {% set check_day = ((now().weekday() - i) % 7) | string %}
+              {% set ns_day = namespace(latest_time='', temp=none) %}
+              
+              {% for s in all_slots %}
+                {% if check_day in s.days %}
+                  {% if s.time >= ns_day.latest_time %}
+                    {% set ns_day.latest_time = s.time %}
+                    {% set ns_day.temp = s.temp %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              
+              {% if ns_day.temp != none %}
+                {% set ns_prev.temp = ns_day.temp %}
+                {% set ns_prev.found = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {% set final_schedule_temp = ns_prev.temp %}
+        {% else %}
+          {% set final_schedule_temp = ns.temp %}
+        {% endif %}
+
+        {# 3. LOGIK FÜR ABWESENHEIT & URLAUB INKL. DATUM/UHRZEIT GRENZEN #}
+        {% set is_absent = absence_toggle != [] and absence_toggle != none and states(absence_toggle) == 'on' %}
+        
+        {# Prüfe Urlaubs-Schalter #}
+        {% set is_vacation = vacation_entity != [] and vacation_entity != none and states(vacation_entity) == 'on' %}
+        
+        {% if is_vacation %}
+          {% set current_ts = as_timestamp(now()) %}
+          
+          {# Startdatum und -uhrzeit prüfen (Entität gewinnt über UI) #}
+          {% if vacation_start_entity != [] and vacation_start_entity != none %}
+            {% set start_ts = state_attr(vacation_start_entity, 'timestamp') %}
+            {% if start_ts != none and current_ts < start_ts %}
+              {% set is_vacation = false %}
+            {% endif %}
+          {% elif vacation_start_ui != "" and vacation_start_ui != none %}
+            {% set start_ts = as_timestamp(vacation_start_ui) %}
+            {% if start_ts != none and current_ts < start_ts %}
+              {% set is_vacation = false %}
+            {% endif %}
+          {% endif %}
+          
+          {# Enddatum und -uhrzeit prüfen (Entität gewinnt über UI) #}
+          {% if is_vacation %}
+            {% if vacation_end_entity != [] and vacation_end_entity != none %}
+              {% set end_ts = state_attr(vacation_end_entity, 'timestamp') %}
+              {% if end_ts != none and current_ts > end_ts %}
+                {% set is_vacation = false %}
+              {% endif %}
+            {% elif vacation_end_ui != "" and vacation_end_ui != none %}
+              {% set end_ts = as_timestamp(vacation_end_ui) %}
+              {% if end_ts != none and current_ts > end_ts %}
+                {% set is_vacation = false %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endif %}
+
+        {# Temperaturen ermitteln (Entität hat Prio, ansonsten Regler) #}
+        {% set abs_target = states(absence_temp_entity) | float(absence_temp_slider) if absence_temp_entity != [] and absence_temp_entity != none and states(absence_temp_entity) not in ['unknown', 'unavailable'] else absence_temp_slider | float %}
+        
+        {% set vac_target = states(vacation_temp_entity) | float(vacation_temp_slider) if vacation_temp_entity != [] and vacation_temp_entity != none and states(vacation_temp_entity) not in ['unknown', 'unavailable'] else vacation_temp_slider | float %}
+
+        {# 4. FINALE ENTSCHEIDUNG WELCHE TEMPERATUR GESETZT WIRD #}
+        {% if is_absent %}
+          {{ abs_target }}
+        {% elif is_vacation %}
+          {{ vac_target }}
+        {% else %}
+          {{ final_schedule_temp | float(20.0) }}
+        {% endif %}
+
+  - service: climate.set_temperature
+    target: !input target_heating
+    data:
+      temperature: "{{ target_temp }}"
